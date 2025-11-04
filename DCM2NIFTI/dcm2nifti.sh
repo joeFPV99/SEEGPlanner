@@ -22,6 +22,13 @@
 #   - dcm2niix
 # ================================================================
 
+
+# Allow access to host binaries when running inside Flatpak VS Code
+if [ -d /var/run/host/usr/bin ]; then
+  export PATH="/var/run/host/usr/bin:/var/run/host/usr/local/bin:$PATH"
+fi
+
+
 set -euo pipefail
 
 # Verify tools
@@ -77,7 +84,7 @@ pick_representative_file() {
 shopt -s nullglob
 
 # Process each patient directory
-for patient_dir in "$INPUT_PARENT"/PAT*/; do
+for patient_dir in "$INPUT_PARENT"/*/; do
   [[ -d "$patient_dir" ]] || continue
   patient_name="$(basename "$patient_dir")"
 
