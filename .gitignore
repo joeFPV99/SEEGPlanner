@@ -1,0 +1,6 @@
+VesselSegPipeline/Data/*
+VesselSegPipeline/OUT/*
+DCM2NIFTI/Data/*
+.vscode/*
+venv/*
+*.json
