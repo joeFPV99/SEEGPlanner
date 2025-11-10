@@ -58,7 +58,7 @@ echo "========================================="
 echo " DICOM → NIfTI conversion (recursive, filtered)"
 echo " Input parent : $INPUT_PATIENT_DIR"
 echo " Output root  : $OUTPUT_ROOT"
-echo " Include only : CT; MR with 'T1' in SeriesDescription"
+echo " Include only : CT; MR with 'T1' in SeriesDescription and Electrodes"
 echo "========================================="
 
 # Helper: choose the first file in a directory that is readable as DICOM for tags
@@ -93,9 +93,12 @@ unique_basename() {
 # Sanitize labels for safe filenames
 sanitize_label() {
   local lbl="$*"
+  #lbl="${lbl//\'/p}"
+  #lbl="${lbl//´/p}"
   lbl="${lbl// /_}"
   lbl="${lbl//\//-}"
   lbl="${lbl//\\/-}"
+  #keep: A-Z, a-z, 0-9, 
   lbl="${lbl//[^A-Za-z0-9._-]/_}"
   printf '%s' "$lbl"
 }
