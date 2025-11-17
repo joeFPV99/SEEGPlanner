@@ -64,26 +64,18 @@ pick_representative_file() {
   local dir="$1"
   local f
 
-  # 1) Prefer files directly in THIS directory (maxdepth 1)
+  # Only look at files directly in THIS directory (leaf series)
+  # - CT Caput/        → no files → skipped
+  # - CT Caput/CT_scan → CT slices → Modality=CT
+  # - CT Caput/Points* → SEG files → Modality=SEG
   while IFS= read -r -d '' f; do
     if dcmdump -q -M +P 0008,0060 "$f" >/dev/null 2>&1; then
       printf '%s\n' "$f"
       return 0
     fi
-  done < <(
-    find "$dir" -maxdepth 1 -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null
-  )
+  done < <(find "$dir" -maxdepth 1 -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null)
 
-  # 2) Fallback: search deeper (rarely needed)
-  while IFS= read -r -d '' f; do
-    if dcmdump -q -M +P 0008,0060 "$f" >/dev/null 2>&1; then
-      printf '%s\n' "$f"
-      return 0
-    fi
-  done < <(
-    find "$dir" -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null
-  )
-
+  # No readable DICOM directly in this folder
   return 1
 }
 
