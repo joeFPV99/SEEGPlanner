@@ -158,54 +158,64 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
         ;;
     esac
 
-    # --- NEW: SEG (Electrode Trajectories) handling — COPY DICOM, no NIfTI ---
-    if [[ "$modality" == "SEG" ]]; then
-      # Ensure SeriesDescription is available
-      if [[ -z "${series_desc:-}" ]]; then
-        series_desc_line="$(dcmdump -M +P 0008,103E "$rep_file" 2>/dev/null || true)"
-        series_desc="$(echo "$series_desc_line" | sed -n 's/.*\[\(.*\)\].*/\1/p')"
-      fi
-
-      # Match exactly "Points and Trajectories" (case-insensitive, allow surrounding spaces)
-      if echo "${series_desc:-}" | grep -qiE '^ *Points and Trajectories *$'; then
-        echo ""
-        echo "  Enter Subfolder: $rel_series_path  (Modality=$modality; SeriesDescription='${series_desc:-N/A}')"
-        echo ""
-
-        series_out_dir="$patient_out/Electrode_Trajectories"
-        mkdir -p "$series_out_dir"
-
-        # For every DICOM file in this SEG series (recursive)
-        while IFS= read -r -d '' segf; do
-          # SegmentLabel (0062,0005): try direct and then item[0] in SegmentSequence
-          label="$(dcmdump -q -M +P 0062,0005 "$segf" 2>/dev/null | sed -n 's/.*\[\(.*\)\].*/\1/p')"
-          if [[ -z "$label" ]]; then
-            label="$(dcmdump -q -M +P '(0062,0002)[0].(0062,0005)' "$segf" 2>/dev/null | sed -n 's/.*\[\(.*\)\].*/\1/p')"
-          fi
-          [[ -z "$label" ]] && label="segment"
-
-          safe_label="$(sanitize_label "$label")"
-          base_name="electrode_${safe_label}"
-          target="${series_out_dir}/${base_name}.dcm"
-
-          # Avoid filename collisions: electrode_<label>.dcm, electrode_<label>_001.dcm, ...
-          if [[ -e "$target" ]]; then
-            i=1
-            while [[ -e "${series_out_dir}/${base_name}_$(printf '%03d' "$i").dcm" ]]; do
-              i=$((i+1))
-            done
-            target="${series_out_dir}/${base_name}_$(printf '%03d' "$i").dcm"
-          fi
-
-          cp -f -- "$segf" "$target"
-          echo "  saved: $(basename "$target")"
-        done < <(find "$series_dir" -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null)
-
-        # Done with this SEG series; proceed to next series
-        continue
-      fi
+  # --- SEG (Electrode Trajectories) handling — COPY DICOM, no NIfTI ---
+  if [[ "$modality" == "SEG" ]]; then
+    # Ensure SeriesDescription is available
+    if [[ -z "${series_desc:-}" ]]; then
+      series_desc_line="$(dcmdump -M +P 0008,103E "$rep_file" 2>/dev/null || true)"
+      series_desc="$(echo "$series_desc_line" | sed -n 's/.*\[\(.*\)\].*/\1/p')"
     fi
-    # --- END NEW SEG handling ---
+
+    # Any SeriesDescription that CONTAINS "Points and Trajectories" (case-insensitive)
+    if echo "${series_desc:-}" | grep -qi "Points and Trajectories"; then
+      echo ""
+      echo "  Enter Subfolder: $rel_series_path  (Modality=$modality; SeriesDescription='${series_desc:-N/A}')"
+      echo ""
+
+      series_out_dir="$patient_out/Electrode_Trajectories"
+      mkdir -p "$series_out_dir"
+
+      # For every DICOM file in this SEG series (recursive)
+      while IFS= read -r -d '' segf; do
+        # SegmentLabel (0062,0005): try direct and then item[0] in SegmentSequence;
+        # make dcmdump failures non-fatal.
+        label="$(
+          { dcmdump -q -M +P 0062,0005 "$segf" 2>/dev/null || true; } \
+          | sed -n 's/.*\[\(.*\)\].*/\1/p'
+        )"
+        if [[ -z "$label" ]]; then
+          label="$(
+            { dcmdump -q -M +P '(0062,0002)[0].(0062,0005)' "$segf" 2>/dev/null || true; } \
+            | sed -n 's/.*\[\(.*\)\].*/\1/p'
+          )"
+        fi
+        [[ -z "$label" ]] && label="segment"
+
+        safe_label="$(sanitize_label "$label")"
+        base_name="electrode_${safe_label}"
+        target="${series_out_dir}/${base_name}.dcm"
+
+        # Avoid filename collisions: electrode_<label>.dcm, electrode_<label>_001.dcm, ...
+        if [[ -e "$target" ]]; then
+          i=1
+          while [[ -e "${series_out_dir}/${base_name}_$(printf '%03d' "$i").dcm" ]]; do
+            i=$((i+1))
+          done
+          target="${series_out_dir}/${base_name}_$(printf '%03d' "$i").dcm"
+        fi
+
+        cp -f -- "$segf" "$target" || {
+          echo "  WARNING: failed to copy $segf" >&2
+          continue
+        }
+        echo "  saved: $(basename "$target")"
+      done < <(find "$series_dir" -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null)
+
+      # Done with this SEG series; proceed to next directory
+      continue
+    fi
+  fi
+  # --- END SEG handling ---
 
     if [[ "$convert" == "yes" ]]; then
       echo ""
