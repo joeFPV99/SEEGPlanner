@@ -114,7 +114,7 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
   echo "=== Patient: $patient_name ==="
 
   # Find all subdirectories recursively (exclude the patient root itself)
-  mapfile -d '' subdirs < <(find "$INPUT_PATIENT_DIR" -type d -mindepth 1 -print0 2>/dev/null || true)
+  mapfile -d '' subdirs < <(find "$INPUT_PATIENT_DIR" -type d -mindepth 1 ! -name 'Electrode_Trajectories' -print0 2>/dev/null || true)
 
   for series_dir in "${subdirs[@]}"; do
     # Compute a RELATIVE path under the patient, in a portable way:
