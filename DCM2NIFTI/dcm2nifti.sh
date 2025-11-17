@@ -283,37 +283,44 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
       series_out_dir="$patient_out"
       out_pattern="${patient_name}_${modality}"
 
-      # Route CT vs CTA and CT_Pre/CT_Post
+      # Prepare a safe label from SeriesDescription for filenames
+      # (use "NoLabel" if SeriesDescription is empty)
+      label_for_name="${series_desc:-NoLabel}"
+      label_for_name="$(sanitize_label "$label_for_name")"
+
+      # Route CT vs CTA and CT_Pre/CT_Post, and include label in name
       if [[ "$modality" == "CT" ]]; then
         # Ensure SeriesDescription available (for CTA + Pre/Post detection)
         if [[ -z "${series_desc:-}" ]]; then
           series_desc_line="$(dcmdump -M +P 0008,103E "$rep_file" 2>/dev/null || true)"
           series_desc="$(echo "$series_desc_line" | sed -n 's/.*\[\(.*\)\].*/\1/p')"
+          label_for_name="${series_desc:-NoLabel}"
+          label_for_name="$(sanitize_label "$label_for_name")"
         fi
 
-        # CTA if SeriesDescription mentions CTA, Angio or SUB
-        if echo "${series_desc:-}" | grep -Eqi "CTA|Angio|SUB"; then
+        # CTA if SeriesDescription mentions CTA or Angio
+        if echo "${series_desc:-}" | grep -Eqi "CTA|Angio"; then
           series_out_dir="$patient_out/CTA"
-          out_pattern="${patient_name}_CTA"
+          out_pattern="${patient_name}_CTA_${label_for_name}"
         else
           # Not CTA → classify CT as Post vs Pre using 'post' in SeriesDescription
           if echo "${series_desc:-}" | grep -qi "post"; then
             series_out_dir="$patient_out/CT_Post"
-            out_pattern="${patient_name}_CT_Post"
+            out_pattern="${patient_name}_CT_Post_${label_for_name}"
           else
             series_out_dir="$patient_out/CT_Pre"
-            out_pattern="${patient_name}_CT_Pre"
+            out_pattern="${patient_name}_CT_Pre_${label_for_name}"
           fi
         fi
 
         mkdir -p "$series_out_dir"
       fi
 
-      # Route MRI T1 → PATxxx/MRI_T1/<patient>_MRI_T1.nii.gz
+      # Route MRI T1 (include label in filename)
       if [[ "$modality" == "MR" ]]; then
         if echo "${series_desc:-}" | grep -qi "T1"; then
           series_out_dir="$patient_out/MRI_T1"
-          out_pattern="${patient_name}_MRI_T1"
+          out_pattern="${patient_name}_MRI_T1_${label_for_name}"
           mkdir -p "$series_out_dir"
         fi
       fi
