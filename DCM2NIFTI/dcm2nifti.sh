@@ -2,17 +2,21 @@
 # ================================================================
 # DICOM → NIfTI conversion (recursive, DCMTK-filtered)
 #
-# Rules:
-#   - Enter every subfolder under each PATxxx patient directory (recursively).
-#   - In each subfolder, take the FIRST file that is actually readable as DICOM.
-#   - Read tags from that single file:
-#       * Modality (0008,0060)
-#       * SeriesDescription (0008,103E)
-#   - Convert ONLY:
-#       * CT series (Modality=CT), or
-#       * MR series where SeriesDescription contains "T1" (case-insensitive)
-#   - Convert the entire subfolder if it matches.
-#   - Suppress JSON sidecars with dcm2niix (-b n).
+# High-level behavior:
+#   - INPUT_ROOT contains multiple patient folders (e.g. PAT001, PAT002, ...).
+#   - For each patient folder:
+#       - Recursively scan all subdirectories (series candidates).
+#       - In each subdirectory, pick ONE representative DICOM file.
+#       - Read:
+#           * Modality (0008,0060)
+#           * SeriesDescription (0008,103E)
+#       - Convert to NIfTI ONLY:
+#           * CT series      (Modality=CT) → CT_Pre / CT_Post / CTA
+#           * MRI T1 series  (Modality=MR, SeriesDescription contains "T1")
+#       - Handle SEG series:
+#           * Modality=SEG AND SeriesDescription contains "Points and Trajectories"
+#           * Copy all SEG DICOMs into Electrode_Trajectories as electrode_<label>.dcm
+#       - Suppress JSON sidecars from dcm2niix (-b n).
 #
 # Usage:
 #   ./dcm2nifti.sh <patients_root_dir> <output_dir>
@@ -27,9 +31,13 @@ if [ -d /var/run/host/usr/bin ]; then
   export PATH="/var/run/host/usr/bin:/var/run/host/usr/local/bin:$PATH"
 fi
 
+# Strict error handling:
+#   -e : exit on first command failure
+#   -u : error on use of unset variables
+#   -o pipefail : pipeline fails if any component fails
 set -euo pipefail
 
-# Verify tools
+# Verify tools are available in PATH
 if ! command -v dcmdump >/dev/null 2>&1; then
   echo "Error: 'dcmdump' (DCMTK) not found. Please install DCMTK and ensure it's in your PATH."
   exit 1
@@ -39,7 +47,7 @@ if ! command -v dcm2niix >/dev/null 2>&1; then
   exit 1
 fi
 
-# Arguments: ROOT folder containing PATxxx subfolders
+# Arguments: ROOT folder containing multiple patient subfolders (PATxxx)
 INPUT_ROOT="${1:-}"
 OUTPUT_ROOT="${2:-}"
 if [[ -z "$INPUT_ROOT" || -z "$OUTPUT_ROOT" ]]; then
@@ -58,16 +66,24 @@ echo " Output root  : $OUTPUT_ROOT"
 echo " Include only : CT; MR with 'T1' in SeriesDescription and Electrodes"
 echo "========================================="
 
-# Helper: choose the first file in a directory that is readable as DICOM for tags
-# (recursive search). Writes chosen path to stdout; returns non-zero if none found.
+# ----------------------------------------------------------------
+# Helper: choose the first file in a directory that is readable as DICOM
+# Behavior:
+#   - Only check files directly inside the given directory (maxdepth 1).
+#   - Ignore DICOMDIR and zero-byte files.
+#   - As soon as a file where dcmdump can read Modality (0008,0060) is found,
+#     print its path and return success.
+#   - If no suitable file is found, return non-zero.
+# ----------------------------------------------------------------
 pick_representative_file() {
   local dir="$1"
   local f
 
   # Only look at files directly in THIS directory (leaf series)
-  # - CT Caput/        → no files → skipped
-  # - CT Caput/CT_scan → CT slices → Modality=CT
-  # - CT Caput/Points* → SEG files → Modality=SEG
+  # - e.g.:
+  #   - PATxxx/CT Caput/CT_scan/ → CT slices → Modality=CT
+  #   - PATxxx/CT Caput/Points & Traj A/ → SEG files → Modality=SEG
+  #   - Directories with no files at this level will be skipped.
   while IFS= read -r -d '' f; do
     if dcmdump -q -M +P 0008,0060 "$f" >/dev/null 2>&1; then
       printf '%s\n' "$f"
@@ -79,7 +95,11 @@ pick_representative_file() {
   return 1
 }
 
-# Ensure unique basename (adds _NNN if needed to avoid overwrite)
+# ----------------------------------------------------------------
+# Helper: ensure a unique NIfTI basename inside a directory.
+#   - If <base>.nii.gz does not exist → use <base>.
+#   - Otherwise append _NNN (001, 002, ...) until a free basename is found.
+# ----------------------------------------------------------------
 unique_basename() {
   local dir="$1" base="$2"
   if [[ ! -e "$dir/${base}.nii.gz" ]]; then
@@ -93,7 +113,13 @@ unique_basename() {
   done
 }
 
-# Sanitize labels for safe filenames
+# ----------------------------------------------------------------
+# Helper: sanitize a label string so it is safe as a filename.
+# Behavior:
+#   - Replace spaces with underscores.
+#   - Replace / and \ with -.
+#   - Replace all characters not in [A-Za-z0-9._-] with underscores.
+# ----------------------------------------------------------------
 sanitize_label() {
   local lbl="$*"
   #lbl="${lbl//\'/p}"
@@ -101,14 +127,17 @@ sanitize_label() {
   lbl="${lbl// /_}"
   lbl="${lbl//\//-}"
   lbl="${lbl//\\/-}"
-  #keep: A-Z, a-z, 0-9, 
+  # keep: A-Z, a-z, 0-9, dot, underscore, dash
   lbl="${lbl//[^A-Za-z0-9._-]/_}"
   printf '%s' "$lbl"
 }
 
 shopt -s nullglob
 
-# --------- LOOP OVER ALL PATIENTS UNDER INPUT_ROOT ----------
+# ----------------------------------------------------------------
+# LOOP OVER ALL PATIENTS UNDER INPUT_ROOT
+#   - Each immediate subdirectory of INPUT_ROOT is treated as one patient.
+# ----------------------------------------------------------------
 for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
   [[ -d "$INPUT_PATIENT_DIR" ]] || continue
 
@@ -120,11 +149,15 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
   echo ""
   echo "=== Patient: $patient_name ==="
 
-  # Find all subdirectories recursively (exclude the patient root itself)
+  # Find all subdirectories recursively (exclude the patient root itself
+  # and our own Electrode_Trajectories output folder).
   mapfile -d '' subdirs < <(find "$INPUT_PATIENT_DIR" -type d -mindepth 1 ! -name 'Electrode_Trajectories' -print0 2>/dev/null || true)
 
+  # ----------------------------------------------------------------
+  # Iterate over each subdirectory as a candidate DICOM series folder.
+  # ----------------------------------------------------------------
   for series_dir in "${subdirs[@]}"; do
-    # Compute a RELATIVE path under the patient, in a portable way:
+    # Compute a RELATIVE path under the patient:
     rel_series_path="${series_dir#$INPUT_PATIENT_DIR}"
     rel_series_path="${rel_series_path#/}"
 
@@ -135,7 +168,7 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
       continue
     fi
 
-    # Read Modality (0008,0060)
+    # Read Modality (0008,0060) from representative DICOM
     modality_line="$(dcmdump -M +P 0008,0060 "$rep_file" 2>/dev/null || true)"
     modality="$(echo "$modality_line" | sed -n 's/.*\[\(.*\)\].*/\1/p')"
 
@@ -145,14 +178,16 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
       continue
     fi
 
-    # Read SeriesDescription (0008,103E) for MR and CT (CTA detection)
+    # Read SeriesDescription (0008,103E) for MR and CT (used for T1 / CTA / Pre/Post)
     series_desc=""
     if [[ "$modality" == "MR" || "$modality" == "CT" ]]; then
       series_desc_line="$(dcmdump -M +P 0008,103E "$rep_file" 2>/dev/null || true)"
       series_desc="$(echo "$series_desc_line" | sed -n 's/.*\[\(.*\)\].*/\1/p')"
     fi
 
-    # Decide conversion (only CT, MR with T1 ans SEG Electrodes)
+    # Decide conversion for dcm2niix:
+    #   - CT → always convert (later split into CTA / CT_Pre / CT_Post).
+    #   - MR → only convert if SeriesDescription contains "T1".
     convert="no"
     case "$modality" in
       CT)
@@ -165,76 +200,90 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
         ;;
     esac
 
-  # --- SEG (Electrode Trajectories) handling — COPY DICOM, no NIfTI ---
-  if [[ "$modality" == "SEG" ]]; then
-    # Ensure SeriesDescription is available
-    if [[ -z "${series_desc:-}" ]]; then
-      series_desc_line="$(dcmdump -M +P 0008,103E "$rep_file" 2>/dev/null || true)"
-      series_desc="$(echo "$series_desc_line" | sed -n 's/.*\[\(.*\)\].*/\1/p')"
-    fi
+    # --------------------------------------------------------------
+    # SEG (Electrode Trajectories) handling — COPY DICOM, no NIfTI
+    #   - Trigger if Modality=SEG.
+    #   - Require SeriesDescription containing "Points and Trajectories".
+    #   - Copy all SEG DICOMs in this folder as electrode_<label>.dcm.
+    #   - Output: PATxxx/Electrode_Trajectories/
+    #   - Skip NIfTI conversion for these series.
+    # --------------------------------------------------------------
+    if [[ "$modality" == "SEG" ]]; then
+      # Ensure SeriesDescription is available for SEG, too
+      if [[ -z "${series_desc:-}" ]]; then
+        series_desc_line="$(dcmdump -M +P 0008,103E "$rep_file" 2>/dev/null || true)"
+        series_desc="$(echo "$series_desc_line" | sed -n 's/.*\[\(.*\)\].*/\1/p')"
+      fi
 
-    # Any SeriesDescription that CONTAINS "Points and Trajectories" (case-insensitive)
-    if echo "${series_desc:-}" | grep -qi "Points and Trajectories"; then
-      echo ""
-      echo "  Enter Subfolder: $rel_series_path  (Modality=$modality; SeriesDescription='${series_desc:-N/A}')"
-      echo ""
+      # Any SeriesDescription that CONTAINS "Points and Trajectories" (case-insensitive)
+      if echo "${series_desc:-}" | grep -qi "Points and Trajectories"; then
+        echo ""
+        echo "  Enter Subfolder: $rel_series_path  (Modality=$modality; SeriesDescription='${series_desc:-N/A}')"
+        echo ""
 
-      series_out_dir="$patient_out/Electrode_Trajectories"
-      mkdir -p "$series_out_dir"
+        series_out_dir="$patient_out/Electrode_Trajectories"
+        mkdir -p "$series_out_dir"
 
-      # For every DICOM file in this SEG series (recursive)
-      while IFS= read -r -d '' segf; do
-        # SegmentLabel (0062,0005): try direct and then item[0] in SegmentSequence;
-        # make dcmdump failures non-fatal.
-        label="$(
-          { dcmdump -q -M +P 0062,0005 "$segf" 2>/dev/null || true; } \
-          | sed -n 's/.*\[\(.*\)\].*/\1/p'
-        )"
-        if [[ -z "$label" ]]; then
+        # For every DICOM file in this SEG series (recursive)
+        while IFS= read -r -d '' segf; do
+          # Try to get SegmentLabel (0062,0005) in two ways:
+          #   - direct 0062,0005
+          #   - '(0062,0002)[0].(0062,0005)' (SegmentSequence item 0)
+          # dcmdump failures are made non-fatal with "|| true".
           label="$(
-            { dcmdump -q -M +P '(0062,0002)[0].(0062,0005)' "$segf" 2>/dev/null || true; } \
+            { dcmdump -q -M +P 0062,0005 "$segf" 2>/dev/null || true; } \
             | sed -n 's/.*\[\(.*\)\].*/\1/p'
           )"
-        fi
-        [[ -z "$label" ]] && label="segment"
+          if [[ -z "$label" ]]; then
+            label="$(
+              { dcmdump -q -M +P '(0062,0002)[0].(0062,0005)' "$segf" 2>/dev/null || true; } \
+              | sed -n 's/.*\[\(.*\)\].*/\1/p'
+            )"
+          fi
+          [[ -z "$label" ]] && label="segment"
 
-        safe_label="$(sanitize_label "$label")"
-        base_name="electrode_${safe_label}"
-        target="${series_out_dir}/${base_name}.dcm"
+          safe_label="$(sanitize_label "$label")"
+          base_name="electrode_${safe_label}"
+          target="${series_out_dir}/${base_name}.dcm"
 
-        # Avoid filename collisions: electrode_<label>.dcm, electrode_<label>_001.dcm, ...
-        if [[ -e "$target" ]]; then
-          i=1
-          while [[ -e "${series_out_dir}/${base_name}_$(printf '%03d' "$i").dcm" ]]; do
-            i=$((i+1))
-          done
-          target="${series_out_dir}/${base_name}_$(printf '%03d' "$i").dcm"
-        fi
+          # Avoid filename collisions:
+          #   electrode_<label>.dcm
+          #   electrode_<label>_001.dcm
+          #   electrode_<label>_002.dcm
+          if [[ -e "$target" ]]; then
+            i=1
+            while [[ -e "${series_out_dir}/${base_name}_$(printf '%03d' "$i").dcm" ]]; do
+              i=$((i+1))
+            done
+            target="${series_out_dir}/${base_name}_$(printf '%03d' "$i").dcm"
+          fi
 
-        cp -f -- "$segf" "$target" || {
-          echo "  WARNING: failed to copy $segf" >&2
-          continue
-        }
-        echo "  saved: $(basename "$target")"
-      done < <(find "$series_dir" -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null)
+          cp -f -- "$segf" "$target" || {
+            echo "  WARNING: failed to copy $segf" >&2
+            continue
+          }
+          echo "  saved: $(basename "$target")"
+        done < <(find "$series_dir" -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null)
 
-      # Done with this SEG series; proceed to next directory
-      continue
+        # Done with this SEG series; proceed directly to next directory
+        continue
+      fi
     fi
-  fi
-  # --- END SEG handling ---
+    # ---------------------- END SEG handling ----------------------
 
+    # --------------------------------------------------------------
+    # NIfTI CONVERSION BLOCK (CT / CTA / CT_Pre / CT_Post / MRI_T1)
+    # --------------------------------------------------------------
     if [[ "$convert" == "yes" ]]; then
       echo ""
       echo "  Enter Subfolder: $rel_series_path  (Modality=$modality; SeriesDescription='${series_desc:-N/A}')"
       echo ""
 
-      # Normalized output directly under patient root
-      # Default values (overridden per category below)
+      # Default output location (overridden per category below)
       series_out_dir="$patient_out"
       out_pattern="${patient_name}_${modality}"
 
-      # Route CT vs CTA
+      # Route CT vs CTA and CT_Pre/CT_Post
       if [[ "$modality" == "CT" ]]; then
         # Ensure SeriesDescription available (for CTA + Pre/Post detection)
         if [[ -z "${series_desc:-}" ]]; then
@@ -242,8 +291,8 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
           series_desc="$(echo "$series_desc_line" | sed -n 's/.*\[\(.*\)\].*/\1/p')"
         fi
 
-        # CTA if SeriesDescription mentions CTA or Angio
-        if echo "${series_desc:-}" | grep -Eqi "CTA|Angio"; then
+        # CTA if SeriesDescription mentions CTA, Angio or SUB
+        if echo "${series_desc:-}" | grep -Eqi "CTA|Angio|SUB"; then
           series_out_dir="$patient_out/CTA"
           out_pattern="${patient_name}_CTA"
         else
@@ -260,7 +309,7 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
         mkdir -p "$series_out_dir"
       fi
 
-      # Route MRI T1
+      # Route MRI T1 → PATxxx/MRI_T1/<patient>_MRI_T1.nii.gz
       if [[ "$modality" == "MR" ]]; then
         if echo "${series_desc:-}" | grep -qi "T1"; then
           series_out_dir="$patient_out/MRI_T1"
@@ -276,6 +325,7 @@ for INPUT_PATIENT_DIR in "$INPUT_ROOT"/*/; do
       dcm2niix -b n -z y -f "$out_pattern" -o "$series_out_dir" "$series_dir" 2>/dev/null
 
     else
+      # Not a CT or MRI-T1 series and not a handled SEG → just log as skipped
       echo ""
       echo " ↦ Skipping:   $rel_series_path  (Modality=$modality; SeriesDescription='${series_desc:-N/A}')"
     fi
