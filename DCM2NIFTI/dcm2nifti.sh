@@ -64,21 +64,25 @@ pick_representative_file() {
   local dir="$1"
   local f
 
-  # 1) Only look at files directly in this directory
+  # 1) Prefer files directly in THIS directory (maxdepth 1)
   while IFS= read -r -d '' f; do
     if dcmdump -q -M +P 0008,0060 "$f" >/dev/null 2>&1; then
       printf '%s\n' "$f"
       return 0
     fi
-  done < <(find "$dir" -maxdepth 1 -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null)
+  done < <(
+    find "$dir" -maxdepth 1 -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null
+  )
 
-  # 2) Fallback: if none found directly, then search deeper (rare)
+  # 2) Fallback: search deeper (rarely needed)
   while IFS= read -r -d '' f; do
     if dcmdump -q -M +P 0008,0060 "$f" >/dev/null 2>&1; then
       printf '%s\n' "$f"
       return 0
     fi
-  done < <(find "$dir" -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null)
+  done < <(
+    find "$dir" -type f ! -iname 'DICOMDIR' -size +0c -print0 2>/dev/null
+  )
 
   return 1
 }
