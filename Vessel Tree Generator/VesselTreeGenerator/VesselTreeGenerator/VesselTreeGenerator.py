@@ -1,3 +1,4 @@
+#type: ignore
 import logging
 import os
 from typing import Annotated, Optional
@@ -6,6 +7,7 @@ import vtk
 import SimpleITK as sitk
 import sitkUtils
 import qt
+import numpy as np
 
 import slicer
 from slicer.i18n import tr as _
@@ -18,6 +20,8 @@ from slicer.parameterNodeWrapper import (
 )
 
 from slicer import vtkMRMLScalarVolumeNode
+from slicer import vtkMRMLLabelMapVolumeNode
+from slicer import vtkMRMLSegmentationNode
 
 
 # ================================
@@ -109,6 +113,7 @@ class VesselTreeGeneratorParameterNode:
     
     inputVolume: vtkMRMLScalarVolumeNode
     outputVolume: vtkMRMLScalarVolumeNode
+    sourceSegmentationVolume: vtkMRMLSegmentationNode
     alphaValue: Annotated[float, WithinRange(0,150)] = 60
     betaValue: Annotated[float, WithinRange(0,500)] = 200
     saveIntermediateVolume: bool = False
@@ -186,6 +191,7 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
         self.ui.applyButton.connect("clicked(bool)", self.onApplySettings)
         self.ui.pushButtonSegementation.connect("clicked(bool)", self.onAddSegmentation)
         self.ui.pushButtonThresholdShow3D.connect("clicked(bool)", self.onApplyThresholdShow3D)
+        self.ui.pushButtonLMapMaurer.connect("clicked(bool)", self.onComputeMaurerDistance)
         
         # Sliders (Sigmoid)
         self.ui.rangeWidgetThreshold.connect("valuesChanged(double,double)", self.onThresholdValuesChanged)
@@ -513,6 +519,69 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
         
         slicer.util.infoDisplay(message)
 
+    def onComputeMaurerDistance(self) -> None:
+        
+        with slicer.util.tryWithErrorDisplay("Failed to compute Maurer Distance.", waitCursor=True):
+            
+            # Segementation node is set as as source volume -> NodeComboBox: "inputSelectorSegmentation"
+            segmentationNode = self.ui.inputSelectorSegmentation.currentNode()
+            if not segmentationNode:
+                raise ValueError("Please select a Segmentation node from Step 2 first.")
+            
+            if not segmentationNode.IsA("vtkMRMLSegmentationNode"): 
+                raise TypeError("Input node must be a Segmentation Node.")
+            
+            # Set the reference volume to the "output" volume of Step 1
+            refVolume = self.ui.outputSelector.currentNode()
+            if not refVolume:
+                raise ValueError("Please select an Output volume from Step 1 first.")
+            
+            # get the segmentation from the node
+            segmentation = segmentationNode.GetSegmentation()
+            if segmentation.GetNumberOfSegments() < 1:
+                raise ValueError("The selected segmentation node does not contain any segments.")
+            
+            scene = slicer.mrmlScene
+            
+            # create labelmap volume from segmentation
+            labelmapNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", "Vessels_Labelmap")
+            if not labelmapNode:
+                raise RuntimeError("Failed to create labelmap volume node.")
+            
+            # Export segmentations 
+            segmentIDs = vtk.vtkStringArray()
+            segmentationNode.GetSegmentation().GetSegmentIDs(segmentIDs)
+            
+            slicer.modules.segmentations.logic().ExportSegmentsToLabelmapNode(
+                segmentationNode,
+                segmentIDs, 
+                labelmapNode,
+                refVolume
+            ) 
+            
+            
+            # --- Enforce binary labelmap (0/1) ---
+            # Segment export can produce labels 1..N; MaurerDistance expects binary.
+            LabelMapImg = sitkUtils.PullVolumeFromSlicer(labelmapNode)
+            LabelMapBinary = sitk.Cast(LabelMapImg > 0, sitk.sitkUInt8)
+            sitkUtils.PushVolumeToSlicer(LabelMapBinary, targetNode=labelmapNode)
+            
+            # creat maurer distance output volume
+            outName = f"{segmentationNode.GetName()}_MaurerDistance"
+            maurerOutputNode = scene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", outName)
+            
+            if not maurerOutputNode:
+                raise RuntimeError("Failed to create Maurer distance output volume node.")
+            
+            # Compute Maurer Distance
+            self.logic.MaurerDistance(labelmapNode, maurerOutputNode, showResults=True)
+        
+        
+            # set LUT "HotToColdRainbow" for better visualization
+            colorNde = slicer.util.getNode("HotToColdRainbow")
+            maurerOutputNode.GetDisplayNode().SetAndObserveColorNodeID(colorNde.GetID())
+            maurerOutputNode.GetDisplayNode().Modified()
+            maurerOutputNode.Modified()
 
 
 
@@ -596,8 +665,41 @@ class VesselTreeGeneratorLogic(ScriptedLoadableModuleLogic):
         if showResults:
             slicer.util.setSliceViewerLayers(background=outputVolume, fit=True)
             
-          
-
+    def MaurerDistance(self,
+                       inputVolume: vtkMRMLLabelMapVolumeNode, 
+                       outputVolume: vtkMRMLScalarVolumeNode, 
+                       showResults: bool = True) -> None:
+        
+        if not inputVolume or not outputVolume:
+            raise ValueError("Input or output volume is invalid")
+        
+            # Must be a labelmap volume node
+        if not inputVolume.IsA("vtkMRMLLabelMapVolumeNode"):
+            raise TypeError(f"Input volume must be a binary labelmap. " f"Got {inputVolume.GetClassName()}.")
+        
+        # pull slicer vol into sitk
+        inputImage = sitkUtils.PullVolumeFromSlicer(inputVolume)
+        
+        # Ensure correct type (optional but safe)
+        #binary = sitk.Cast(inputImage > 0, sitk.sitkUInt8)
+        
+        # Maurer Distance Filter
+        maurerFilter = sitk.SignedMaurerDistanceMapImageFilter()
+        maurerFilter.SetUseImageSpacing(True)
+        maurerFilter.SetSquaredDistance(False)
+        maurerFilter.SetBackgroundValue(0)
+        maurerFilter.SetInsideIsPositive(False)
+        
+        outputImage = maurerFilter.Execute(inputImage)
+        
+        # push back to Slicer
+        sitkUtils.PushVolumeToSlicer(outputImage, targetNode = outputVolume)
+        
+        if showResults:
+            slicer.util.setSliceViewerLayers(background=outputVolume, fit=True)
+            
+        
+        
 # ================================
 # VesselTreeGeneratorTest
 # ================================

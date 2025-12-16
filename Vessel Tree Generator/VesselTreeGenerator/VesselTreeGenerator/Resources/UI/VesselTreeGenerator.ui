@@ -9,7 +9,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>739</width>
+    <width>792</width>
     <height>722</height>
    </rect>
   </property>
@@ -23,13 +23,13 @@
    <bool>false</bool>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="2" column="0">
+   <item row="4" column="0">
     <widget class="ctkCollapsibleButton" name="Create3DModel">
      <property name="text">
-      <string>Generate 3D Model </string>
+      <string>2. Generate 3D Model </string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
-      <item row="3" column="0">
+      <item row="3" column="1">
        <widget class="QPushButton" name="pushButtonThresholdShow3D">
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;This Buton will do the following:&lt;/span&gt;&lt;/p&gt;&lt;p&gt;1. Apply Threshold based on the sliders &lt;/p&gt;&lt;p&gt;2. Apply the &amp;quot;Keep Largest Island&amp;quot; effect with 1000 voxels &lt;/p&gt;&lt;p&gt;3. Show the 3D closed Surface representation &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -39,7 +39,14 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
+      <item row="1" column="1">
+       <widget class="QPushButton" name="pushButtonSegementation">
+        <property name="text">
+         <string>1. Click to add Segementation </string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
        <widget class="ctkRangeWidget" name="rangeWidgetThreshold">
         <property name="decimals">
          <number>2</number>
@@ -49,25 +56,18 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="0">
-       <widget class="QPushButton" name="pushButtonSegementation">
-        <property name="text">
-         <string>1. Click to add Segementation </string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0">
-       <spacer name="verticalSpacer">
+      <item row="4" column="1">
+       <spacer name="verticalSpacer_4">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
         </property>
         <property name="sizeType">
-         <enum>QSizePolicy::MinimumExpanding</enum>
+         <enum>QSizePolicy::Fixed</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
           <width>20</width>
-          <height>40</height>
+          <height>10</height>
          </size>
         </property>
        </spacer>
@@ -93,7 +93,7 @@
       </size>
      </property>
      <property name="text">
-      <string>Image Processing</string>
+      <string>1. Image Processing</string>
      </property>
      <property name="checkable">
       <bool>true</bool>
@@ -117,6 +117,58 @@
       <property name="verticalSpacing">
        <number>0</number>
       </property>
+      <item row="7" column="2">
+       <widget class="Line" name="line">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>45</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="4">
+       <widget class="QRadioButton" name="buttonHigh">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;This will apply a Median Filter with R=2 (5x5x5 Neighbourhood)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>High</string>
+        </property>
+        <attribute name="buttonGroup">
+         <string notr="true">buttonGroup</string>
+        </attribute>
+       </widget>
+      </item>
+      <item row="6" column="10">
+       <widget class="Line" name="line_4">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="1">
+       <widget class="QCheckBox" name="checkBoxIntermediateVolume">
+        <property name="toolTip">
+         <string>This will generate a volume after the nois reduction without the Sigmoid Filter applied. </string>
+        </property>
+        <property name="text">
+         <string>Generate Intermediate Volume</string>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>saveIntermediateVolume</string>
+        </property>
+       </widget>
+      </item>
       <item row="8" column="3">
        <widget class="QLabel" name="label_7">
         <property name="font">
@@ -132,19 +184,22 @@
         </property>
        </widget>
       </item>
-      <item row="7" column="4">
-       <widget class="ctkSliderWidget" name="SliderWidgetAlpha">
-        <property name="decimals">
-         <number>0</number>
+      <item row="10" column="4">
+       <widget class="QPushButton" name="applyButton">
+        <property name="enabled">
+         <bool>true</bool>
         </property>
-        <property name="maximum">
-         <double>200.000000000000000</double>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
         </property>
-        <property name="value">
-         <double>60.000000000000000</double>
+        <property name="text">
+         <string>Apply Settings </string>
         </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>alphaValue</string>
+        <property name="checkable">
+         <bool>false</bool>
         </property>
        </widget>
       </item>
@@ -160,6 +215,34 @@
         </property>
         <property name="alignment">
          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="3">
+       <widget class="QLabel" name="label">
+        <property name="font">
+         <font>
+          <underline>true</underline>
+         </font>
+        </property>
+        <property name="text">
+         <string>Noise Reduction:</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Input Volume</string>
         </property>
        </widget>
       </item>
@@ -200,6 +283,38 @@
         </property>
        </widget>
       </item>
+      <item row="8" column="4">
+       <widget class="ctkSliderWidget" name="SliderWidgetBeta">
+        <property name="decimals">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <double>500.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>220.000000000000000</double>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>betaValue</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="4">
+       <widget class="ctkSliderWidget" name="SliderWidgetAlpha">
+        <property name="decimals">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <double>200.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>60.000000000000000</double>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>alphaValue</string>
+        </property>
+       </widget>
+      </item>
       <item row="1" column="1">
        <widget class="qMRMLNodeComboBox" name="inputSelector">
         <property name="enabled">
@@ -233,95 +348,6 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="3">
-       <widget class="QLabel" name="label">
-        <property name="font">
-         <font>
-          <underline>true</underline>
-         </font>
-        </property>
-        <property name="text">
-         <string>Noise Reduction:</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="4">
-       <widget class="QRadioButton" name="buttonHigh">
-        <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;This will apply a Median Filter with R=2 (5x5x5 Neighbourhood)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="text">
-         <string>High</string>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">buttonGroup</string>
-        </attribute>
-       </widget>
-      </item>
-      <item row="10" column="4">
-       <widget class="QPushButton" name="applyButton">
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string>Apply Settings </string>
-        </property>
-        <property name="checkable">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="8" column="4">
-       <widget class="ctkSliderWidget" name="SliderWidgetBeta">
-        <property name="decimals">
-         <number>0</number>
-        </property>
-        <property name="maximum">
-         <double>500.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>220.000000000000000</double>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>betaValue</string>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="10">
-       <widget class="Line" name="line_4">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="7" column="2">
-       <widget class="Line" name="line">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>45</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-       </widget>
-      </item>
       <item row="1" column="4">
        <widget class="QRadioButton" name="buttonLow">
         <property name="sizePolicy">
@@ -344,34 +370,143 @@
         </attribute>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_5">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
+      <item row="11" column="2">
+       <spacer name="verticalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
         </property>
-        <property name="text">
-         <string>Input Volume</string>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>10</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="11" column="0">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::MinimumExpanding</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="8" column="0">
+    <widget class="ctkCollapsibleButton" name="sourceVolSelector">
+     <property name="text">
+      <string>3. Create Binary Labelmap (BLM) and compute Maurer Distance Map </string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <item row="0" column="1">
+       <widget class="qMRMLNodeComboBox" name="inputSelectorSegmentation">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="nodeTypes">
+         <stringlist notr="true">
+          <string>vtkMRMLSegmentationNode
+</string>
+         </stringlist>
+        </property>
+        <property name="showChildNodeTypes">
+         <bool>false</bool>
+        </property>
+        <property name="hideChildNodeTypes">
+         <stringlist notr="true"/>
+        </property>
+        <property name="noneEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="addEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="removeEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="interactionNodeSingletonTag">
+         <string notr="true"/>
+        </property>
+        <property name="selectNodeUponCreation">
+         <bool>false</bool>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>sourceSegmentationVolume</string>
         </property>
        </widget>
       </item>
-      <item row="8" column="1">
-       <widget class="QCheckBox" name="checkBoxIntermediateVolume">
-        <property name="toolTip">
-         <string>This will generate a volume after the nois reduction without the Sigmoid Filter applied. </string>
-        </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>Generate Intermediate Volume</string>
+         <string>Segmentation Source Volume:</string>
         </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>saveIntermediateVolume</string>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QPushButton" name="pushButtonLMapMaurer">
+        <property name="text">
+         <string>Create BLM and Maurer Distance Map</string>
         </property>
        </widget>
       </item>
      </layout>
     </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="Line" name="line_3">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <widget class="Line" name="line_2">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <spacer name="verticalSpacer_3">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Fixed</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>10</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="7" column="0">
+    <spacer name="verticalSpacer_5">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Fixed</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>10</height>
+      </size>
+     </property>
+    </spacer>
    </item>
   </layout>
  </widget>
@@ -435,6 +570,22 @@
     <hint type="destinationlabel">
      <x>162</x>
      <y>146</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>VesselTreeGenerator</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>inputSelectorSegmentation</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>395</x>
+     <y>360</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>368</x>
+     <y>314</y>
     </hint>
    </hints>
   </connection>
