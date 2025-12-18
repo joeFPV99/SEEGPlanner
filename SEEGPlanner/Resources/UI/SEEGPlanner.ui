@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>VesselTreeGenerator</class>
- <widget class="qMRMLWidget" name="VesselTreeGenerator">
+ <class>SEEGPlanner</class>
+ <widget class="qMRMLWidget" name="SEEGPlanner">
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -542,7 +542,7 @@
  <resources/>
  <connections>
   <connection>
-   <sender>VesselTreeGenerator</sender>
+   <sender>SEEGPlanner</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
    <receiver>outputSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
@@ -558,7 +558,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>VesselTreeGenerator</sender>
+   <sender>SEEGPlanner</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
    <receiver>inputSelector</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
@@ -574,7 +574,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>VesselTreeGenerator</sender>
+   <sender>SEEGPlanner</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
    <receiver>inputSelectorSegmentation</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>

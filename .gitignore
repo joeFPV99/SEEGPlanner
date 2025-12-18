@@ -5,3 +5,6 @@ DCM2NIFTI/Data/*
 venv/*
 *.json
 .DS_Store
+__pycache__
+*Release/
+*Debug/

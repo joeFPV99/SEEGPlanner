@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME VesselTreeGenerator)
+set(MODULE_NAME SEEGPlanner)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS

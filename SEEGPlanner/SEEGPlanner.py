@@ -25,22 +25,22 @@ from slicer import vtkMRMLSegmentationNode
 
 
 # ================================
-# VesselTreeGenerator
+# SEEGPlanner
 # ================================
 
 
-class VesselTreeGenerator(ScriptedLoadableModule):
+class SEEGPlanner(ScriptedLoadableModule):
     """Uses ScriptedLoadableModule base class, available at:
     https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
     """
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = _("VesselTreeGenerator")  # TODO: make this more human readable by adding spaces
+        self.parent.title = _("SEEGPlanner")  # TODO: make this more human readable by adding spaces
         # TODO: set categories (folders where the module shows up in the module selector)
         self.parent.categories = [translate("qSlicerAbstractCoreModule", "SEEG Planner OUH")]
         self.parent.dependencies = []  # TODO: add here list of module names that this module requires
-        self.parent.contributors = ["Jonas Ludwig (KIT)"]  
+        self.parent.contributors = ["Jonas Ludwig (KIT)"]
         # TODO: update with short description of the module and a link to online module documentation
         # _() function marks text as translatable to other languages
         self.parent.helpText = _(""" The Vessel Tree Generator module provides an automated workflow for extracting vascular
@@ -74,35 +74,35 @@ def registerSampleData():
     # To ensure that the source code repository remains small (can be downloaded and installed quickly)
     # it is recommended to store data sets that are larger than a few MB in a Github release.
 
-    # VesselTreeGenerator1
+    # SEEGPlanner1
     SampleData.SampleDataLogic.registerCustomSampleDataSource(
         # Category and sample name displayed in Sample Data module
-        category="VesselTreeGenerator",
-        sampleName="VesselTreeGenerator1",
+        category="SEEGPlanner",
+        sampleName="SEEGPlanner1",
         # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
         # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, "VesselTreeGenerator1.png"),
+        thumbnailFileName=os.path.join(iconsPath, "SEEGPlanner1.png"),
         # Download URL and target file name
         uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
-        fileNames="VesselTreeGenerator1.nrrd",
+        fileNames="SEEGPlanner1.nrrd",
         # Checksum to ensure file integrity. Can be computed by this command:
         #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
         checksums="SHA256:998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
         # This node name will be used when the data set is loaded
-        nodeNames="VesselTreeGenerator1",
+        nodeNames="SEEGPlanner1",
     )
 
 
 # ================================
-# VesselTreeGeneratorParameterNode
+# SEEGPlannerParameterNode
 # ================================
 
 
 @parameterNodeWrapper
-class VesselTreeGeneratorParameterNode:
+class SEEGPlannerParameterNode:
     """
     The parameters needed by module.
-    
+
     inputVolume — The volume selected by the user as processing input.
     outputVolume — The volume where the processed (median + sigmoid) result is written.
     alphaValue — Alpha parameter of the sigmoid filter, controlling steepness.
@@ -110,7 +110,7 @@ class VesselTreeGeneratorParameterNode:
     saveIntermediateVolume — If enabled, the module stores the median-filtered volume as an additional node (“intermediate_median”) before sigmoid is applied.
     imageThreshold — Threshold value used for segmentation preview or processing steps requiring a scalar cutoff.
     """
-    
+
     inputVolume: vtkMRMLScalarVolumeNode
     outputVolume: vtkMRMLScalarVolumeNode
     sourceSegmentationVolume: vtkMRMLSegmentationNode
@@ -121,11 +121,11 @@ class VesselTreeGeneratorParameterNode:
 
 
 # ================================
-# VesselTreeGeneratorWidget
+# SEEGPlannerWidget
 # ================================
 
 
-class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
+class SEEGPlannerWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """Uses ScriptedLoadableModuleWidget base class, available at:
     https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
     """
@@ -137,29 +137,29 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
         self.logic = None
         self._parameterNode = None
         self._parameterNodeGuiTag = None
-        
-        # For Noise reduction 
+
+        # For Noise reduction
         self._medianRadius = None
-    
+
         # Internal Segment Editor widget for thresholding and Largest Islands
         self.segmentEditorWidget3D = None
         self.segmentEditorNode3D = None
-    
+
         # For 3D model generation
         self._segmentationNode3D = None
         self._segmentId3D = None
-        
-        # threshold slider (qMRMLVolumeThresholdWidget) 
+
+        # threshold slider (qMRMLVolumeThresholdWidget)
         self._lastThresholdMin = None
-        self._lastThresholdMax = None   
-               
+        self._lastThresholdMax = None
+
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
         ScriptedLoadableModuleWidget.setup(self)
 
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
-        uiWidget = slicer.util.loadUI(self.resourcePath("UI/VesselTreeGenerator.ui"))
+        uiWidget = slicer.util.loadUI(self.resourcePath("UI/SEEGPlanner.ui"))
         self.layout.addWidget(uiWidget)
         self.ui = slicer.util.childWidgetVariables(uiWidget)
 
@@ -167,17 +167,17 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
         # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
         # "setMRMLScene(vtkMRMLScene*)" slot.
         uiWidget.setMRMLScene(slicer.mrmlScene)
-        
-        
+
+
         # Invisible Segment Editor Widget
         self.segmentEditorWidget3D = slicer.qMRMLSegmentEditorWidget()
         self.segmentEditorWidget3D.setMRMLScene(slicer.mrmlScene)
         self.segmentEditorNode3D = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
         self.segmentEditorWidget3D.setMRMLSegmentEditorNode(self.segmentEditorNode3D)
-        
+
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
-        self.logic = VesselTreeGeneratorLogic()
+        self.logic = SEEGPlannerLogic()
 
         # Connections
 
@@ -192,22 +192,22 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
         self.ui.pushButtonSegementation.connect("clicked(bool)", self.onAddSegmentation)
         self.ui.pushButtonThresholdShow3D.connect("clicked(bool)", self.onApplyThresholdShow3D)
         self.ui.pushButtonLMapMaurer.connect("clicked(bool)", self.onComputeMaurerDistance)
-        
+
         # Sliders (Sigmoid)
         self.ui.rangeWidgetThreshold.connect("valuesChanged(double,double)", self.onThresholdValuesChanged)
-        
+
         # Make sure parameter node is initialized (needed for module reload)
-        self.initializeParameterNode()   
+        self.initializeParameterNode()
 
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
-        
+
     def enter(self) -> None:
         """Called each time the user opens this module."""
         # Make sure parameter node exists and observed
         self.initializeParameterNode()
-    
+
     def exit(self) -> None:
         """Called each time the user opens a different module."""
         # Do not react to parameter node changes (GUI will be updated when the user enters into the module)
@@ -215,18 +215,18 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
             self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
             self._parameterNodeGuiTag = None
             self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
-        
+
     def onSceneStartClose(self, caller, event) -> None:
         """Called just before the scene is closed."""
         # Parameter node will be reset, do not use it anymore
         self.setParameterNode(None)
-    
+
     def onSceneEndClose(self, caller, event) -> None:
         """Called just after the scene is closed."""
         # If this module is shown while the scene is closed then recreate a new parameter node immediately
         if self.parent.isEntered:
             self.initializeParameterNode()
-            
+
     def initializeParameterNode(self) -> None:
         """Ensure parameter node exists and observed."""
         # Parameter node stores all user choices in parameter values, node selections, etc.
@@ -239,8 +239,8 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
             firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
             if firstVolumeNode:
                 self._parameterNode.inputVolume = firstVolumeNode
-                
-    def setParameterNode(self, inputParameterNode: Optional[VesselTreeGeneratorParameterNode]) -> None:
+
+    def setParameterNode(self, inputParameterNode: Optional[SEEGPlannerParameterNode]) -> None:
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
@@ -256,10 +256,10 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
             self._parameterNodeGuiTag = self._parameterNode.connectGui(self.ui)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
             self._checkCanApply()
-            
+
     def _checkCanApply(self, caller=None, event=None) -> None:
         pass
-            
+
     def onApplyButton(self) -> None:
         """Run processing when user clicks "Apply" button."""
         with slicer.util.tryWithErrorDisplay(_("Failed to compute results."), waitCursor=True):
@@ -272,74 +272,74 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
                 # If additional output volume is selected then result with inverted threshold is written there
                 self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
                                    self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
-  
+
     def onNoiseReductionLow(self, checked: bool) -> None:
-        # set R=1 
+        # set R=1
         if checked:
             self._medianRadius = 1
-          
+
     def onNoiseReductionHigh(self, checked: bool) -> None:
         # set R=2
         if checked:
             self._medianRadius = 2
-             
+
     def onApplySettings(self) -> None:
         print("DEBUG: onApplySettings called")
-        # Apply settings when apply is clicked 
+        # Apply settings when apply is clicked
         with slicer.util.tryWithErrorDisplay(_("Failed to apply settings."), waitCursor=True):
-            
+
             # Set I/O
             inputVolume = self.ui.inputSelector.currentNode()
             outputVolume = self.ui.outputSelector.currentNode()
-            
+
             if not inputVolume or not outputVolume:
                 raise ValueError("No volumes selected!")
-            
+
             # Decide what radius to apply
             medianRadius = self._medianRadius
-            
-            # sigmoid will take this as input 
-            medianResultNode = inputVolume 
-            
-            # if radius is chosen 
+
+            # sigmoid will take this as input
+            medianResultNode = inputVolume
+
+            # if radius is chosen
             tempMedianNode = None
-            
+
             if medianRadius is not None:
-                # user request for intermediate volume 
+                # user request for intermediate volume
                 if self._parameterNode.saveIntermediateVolume:
                     scene = slicer.mrmlScene
                     existingNode = scene.GetFirstNodeByName("intermediate_median")
-                    
+
                     # if intermediate volume is already there
                     if existingNode:
                         intermediateNode = existingNode
                     else:
                         intermediateNode = scene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", "intermediate_median")
-                        
+
                     self.logic.applyMedianFilter(inputVolume, intermediateNode, medianRadius, showResults=False)
-                    
+
                     medianResultNode = intermediateNode
-                    
+
                 else:
                     # no intermediate volume requested by user
                     tempMedianNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", "TempMedianForSigmoid")
                     self.logic.applyMedianFilter(inputVolume, tempMedianNode, medianRadius, showResults=False)
-                    
+
                     medianResultNode = tempMedianNode
-                    
+
             alpha = self.ui.SliderWidgetAlpha.value
             beta = self.ui.SliderWidgetBeta.value
-            
+
             # apply sigmoid on output median
             self.logic.applySigmoidFilter(medianResultNode, outputVolume, alpha, beta)
-            
+
             # show
             slicer.util.setSliceViewerLayers(background=outputVolume, fit=True)
 
             # Clean up temp node if we used one
             if tempMedianNode is not None:
                 slicer.mrmlScene.RemoveNode(tempMedianNode)
-                                     
+
     def onAddSegmentation(self) -> None:
         """
         Create (or reuse) a segmentation node based on the current output volume,
@@ -391,7 +391,7 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
             # Also remember these as current threshold values
             self._lastThresholdMin = low
             self._lastThresholdMax = high
-   
+
     def onThresholdValuesChanged(self, minimum: float, maximum: float) -> None:
         # Remember for 'Apply Threshold' button
         self._lastThresholdMin = minimum
@@ -444,13 +444,13 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
             if not volumeNode:
                 raise ValueError("Please select an Output volume.")
 
-            # Prepare Segment Editor widget 
+            # Prepare Segment Editor widget
             w = self.segmentEditorWidget3D
             w.setSegmentationNode(self._segmentationNode3D)
             w.setSourceVolumeNode(volumeNode)
             w.setCurrentSegmentID(self._segmentId3D)
 
-            # Apply Threshold into the segment 
+            # Apply Threshold into the segment
             w.setActiveEffectByName("Threshold")
             effect = w.activeEffect()
             if not effect:
@@ -462,7 +462,7 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
             # Actually write mask into the segment
             effect.self().onApply()
 
-            # Keep largest island 
+            # Keep largest island
             w.setActiveEffectByName("Islands")
             effect = w.activeEffect()
             if not effect:
@@ -471,11 +471,11 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
             effect.setParameter("Operation", "KEEP_LARGEST_ISLAND")
             effect.setParameter("MinimumSize", "1000")
             effect.self().onApply()
-            
-            # Deselect any SegmentEditor Effect 
+
+            # Deselect any SegmentEditor Effect
             w.setActiveEffect(None)
 
-            # Make sure closed surface is generated and shown in 3D 
+            # Make sure closed surface is generated and shown in 3D
             segNode = self._segmentationNode3D
             segNode.CreateDefaultDisplayNodes()
             segDisplayNode = segNode.GetDisplayNode()
@@ -495,7 +495,7 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
             threeDWidget = layoutManager.threeDWidget(0)
             threeDView = threeDWidget.threeDView()
             threeDView.resetCamera()
-            
+
             # collect params for infoDisplay
             medianRadius = self._medianRadius if self._medianRadius is not None else "None"
             alpha = self.ui.SliderWidgetAlpha.value
@@ -516,67 +516,67 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
                     f"Threshold Min: {thMin:g}\n"
                     f"Threshold Max: {thMax:g}"
                     )
-        
+
         slicer.util.infoDisplay(message)
 
     def onComputeMaurerDistance(self) -> None:
-        
+
         with slicer.util.tryWithErrorDisplay("Failed to compute Maurer Distance.", waitCursor=True):
-            
+
             # Segementation node is set as as source volume -> NodeComboBox: "inputSelectorSegmentation"
             segmentationNode = self.ui.inputSelectorSegmentation.currentNode()
             if not segmentationNode:
                 raise ValueError("Please select a Segmentation node from Step 2 first.")
-            
-            if not segmentationNode.IsA("vtkMRMLSegmentationNode"): 
+
+            if not segmentationNode.IsA("vtkMRMLSegmentationNode"):
                 raise TypeError("Input node must be a Segmentation Node.")
-            
+
             # Set the reference volume to the "output" volume of Step 1
             refVolume = self.ui.outputSelector.currentNode()
             if not refVolume:
                 raise ValueError("Please select an Output volume from Step 1 first.")
-            
+
             # get the segmentation from the node
             segmentation = segmentationNode.GetSegmentation()
             if segmentation.GetNumberOfSegments() < 1:
                 raise ValueError("The selected segmentation node does not contain any segments.")
-            
+
             scene = slicer.mrmlScene
-            
+
             # create labelmap volume from segmentation
             labelmapNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", "Vessels_Labelmap")
             if not labelmapNode:
                 raise RuntimeError("Failed to create labelmap volume node.")
-            
-            # Export segmentations 
+
+            # Export segmentations
             segmentIDs = vtk.vtkStringArray()
             segmentationNode.GetSegmentation().GetSegmentIDs(segmentIDs)
-            
+
             slicer.modules.segmentations.logic().ExportSegmentsToLabelmapNode(
                 segmentationNode,
-                segmentIDs, 
+                segmentIDs,
                 labelmapNode,
                 refVolume
-            ) 
-            
-            
+            )
+
+
             # --- Enforce binary labelmap (0/1) ---
             # Segment export can produce labels 1..N; MaurerDistance expects binary.
             LabelMapImg = sitkUtils.PullVolumeFromSlicer(labelmapNode)
             LabelMapBinary = sitk.Cast(LabelMapImg > 0, sitk.sitkUInt8)
             sitkUtils.PushVolumeToSlicer(LabelMapBinary, targetNode=labelmapNode)
-            
+
             # creat maurer distance output volume
             outName = f"{segmentationNode.GetName()}_MaurerDistance"
             maurerOutputNode = scene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", outName)
-            
+
             if not maurerOutputNode:
                 raise RuntimeError("Failed to create Maurer distance output volume node.")
-            
+
             # Compute Maurer Distance
             self.logic.MaurerDistance(labelmapNode, maurerOutputNode, showResults=True)
-        
-        
+
+
             # set LUT "HotToColdRainbow" for better visualization
             colorNde = slicer.util.getNode("HotToColdRainbow")
             maurerOutputNode.GetDisplayNode().SetAndObserveColorNodeID(colorNde.GetID())
@@ -586,11 +586,11 @@ class VesselTreeGeneratorWidget(ScriptedLoadableModuleWidget, VTKObservationMixi
 
 
 # ================================
-# VesselTreeGeneratorLogic
+# SEEGPlannerLogic
 # ================================
 
 
-class VesselTreeGeneratorLogic(ScriptedLoadableModuleLogic):
+class SEEGPlannerLogic(ScriptedLoadableModuleLogic):
     """This class should implement all the actual
     computation done by your module.  The interface
     should be such that other python code can import
@@ -605,107 +605,107 @@ class VesselTreeGeneratorLogic(ScriptedLoadableModuleLogic):
         ScriptedLoadableModuleLogic.__init__(self)
 
     def getParameterNode(self):
-        return VesselTreeGeneratorParameterNode(super().getParameterNode())
+        return SEEGPlannerParameterNode(super().getParameterNode())
 
-    def applyMedianFilter(self, 
-                          inputVolume: vtkMRMLScalarVolumeNode, 
-                          outputVolume: vtkMRMLScalarVolumeNode, 
-                          radius: int, 
+    def applyMedianFilter(self,
+                          inputVolume: vtkMRMLScalarVolumeNode,
+                          outputVolume: vtkMRMLScalarVolumeNode,
+                          radius: int,
                           showResults: bool = True ) -> None:
-        
+
         if not inputVolume or not outputVolume:
             raise ValueError("Input or output volume is invalid")
-    
+
         import time, logging
         startTime = time.time()
         logging.info(f"Median filter started (radius={radius})")
-        
-        # Pull slicer volume into SITK image 
+
+        # Pull slicer volume into SITK image
         inputImage = sitkUtils.PullVolumeFromSlicer(inputVolume)
-        
+
         # Median Filter
         medianFilter = sitk.MedianImageFilter()
         medianFilter.SetRadius(radius)
         outputImage = medianFilter.Execute(inputImage)
-        
-        # Push back to Slicer 
+
+        # Push back to Slicer
         sitkUtils.PushVolumeToSlicer(outputImage, targetNode = outputVolume)
-        
+
         if showResults:
             slicer.util.setSliceViewerLayers(background=outputVolume, fit=True)
-            
+
         logging.info(f"Median filter completed")
-    
-    def applySigmoidFilter(self, 
-                           inputVolume: vtkMRMLScalarVolumeNode, 
-                           outputVolume: vtkMRMLScalarVolumeNode, 
-                           alpha: float, 
-                           beta: float, 
-                           outputMinimum: float = 0, 
-                           outputMaximum: float = 1, 
+
+    def applySigmoidFilter(self,
+                           inputVolume: vtkMRMLScalarVolumeNode,
+                           outputVolume: vtkMRMLScalarVolumeNode,
+                           alpha: float,
+                           beta: float,
+                           outputMinimum: float = 0,
+                           outputMaximum: float = 1,
                            showResults: bool = True) -> None:
-        
+
         if not inputVolume or not outputVolume:
             raise ValueError("Input or output volume is invalid")
-        
+
         # pull slicer vol into sitk
         inputImage = sitkUtils.PullVolumeFromSlicer(inputVolume)
-        
-        # Sigmoid Filter 
+
+        # Sigmoid Filter
         sigmoidFilter = sitk.SigmoidImageFilter()
         sigmoidFilter.SetAlpha(alpha)
         sigmoidFilter.SetBeta(beta)
         sigmoidFilter.SetOutputMaximum(outputMaximum)
         sigmoidFilter.SetOutputMinimum(outputMinimum)
         outputImage = sigmoidFilter.Execute(inputImage)
-        
-        # Push back to Slicer 
+
+        # Push back to Slicer
         sitkUtils.PushVolumeToSlicer(outputImage, targetNode = outputVolume)
-        
+
         if showResults:
             slicer.util.setSliceViewerLayers(background=outputVolume, fit=True)
-            
+
     def MaurerDistance(self,
-                       inputVolume: vtkMRMLLabelMapVolumeNode, 
-                       outputVolume: vtkMRMLScalarVolumeNode, 
+                       inputVolume: vtkMRMLLabelMapVolumeNode,
+                       outputVolume: vtkMRMLScalarVolumeNode,
                        showResults: bool = True) -> None:
-        
+
         if not inputVolume or not outputVolume:
             raise ValueError("Input or output volume is invalid")
-        
+
             # Must be a labelmap volume node
         if not inputVolume.IsA("vtkMRMLLabelMapVolumeNode"):
             raise TypeError(f"Input volume must be a binary labelmap. " f"Got {inputVolume.GetClassName()}.")
-        
+
         # pull slicer vol into sitk
         inputImage = sitkUtils.PullVolumeFromSlicer(inputVolume)
-        
+
         # Ensure correct type (optional but safe)
         #binary = sitk.Cast(inputImage > 0, sitk.sitkUInt8)
-        
+
         # Maurer Distance Filter
         maurerFilter = sitk.SignedMaurerDistanceMapImageFilter()
         maurerFilter.SetUseImageSpacing(True)
         maurerFilter.SetSquaredDistance(False)
         maurerFilter.SetBackgroundValue(0)
         maurerFilter.SetInsideIsPositive(False)
-        
+
         outputImage = maurerFilter.Execute(inputImage)
-        
+
         # push back to Slicer
         sitkUtils.PushVolumeToSlicer(outputImage, targetNode = outputVolume)
-        
+
         if showResults:
             slicer.util.setSliceViewerLayers(background=outputVolume, fit=True)
-            
-        
-        
+
+
+
 # ================================
-# VesselTreeGeneratorTest
+# SEEGPlannerTest
 # ================================
 
 
-class VesselTreeGeneratorTest(ScriptedLoadableModuleTest):
+class SEEGPlannerTest(ScriptedLoadableModuleTest):
     """
     This is the test case for your scripted module.
     Uses ScriptedLoadableModuleTest base class, available at:
@@ -719,10 +719,10 @@ class VesselTreeGeneratorTest(ScriptedLoadableModuleTest):
     def runTest(self):
         """Run as few or as many tests as needed here."""
         self.setUp()
-        #self.test_VesselTreeGenerator1()
+        #self.test_SEEGPlanner1()
 
     '''
-    def test_VesselTreeGenerator1(self):
+    def test_SEEGPlanner1(self):
         """Ideally you should have several levels of tests.  At the lowest level
         tests should exercise the functionality of the logic with different inputs
         (both valid and invalid).  At higher levels your tests should emulate the
@@ -741,7 +741,7 @@ class VesselTreeGeneratorTest(ScriptedLoadableModuleTest):
         import SampleData
 
         registerSampleData()
-        inputVolume = SampleData.downloadSample("VesselTreeGenerator1")
+        inputVolume = SampleData.downloadSample("SEEGPlanner1")
         self.delayDisplay("Loaded test data set")
 
         inputScalarRange = inputVolume.GetImageData().GetScalarRange()
@@ -753,7 +753,7 @@ class VesselTreeGeneratorTest(ScriptedLoadableModuleTest):
 
         # Test the module logic
 
-        logic = VesselTreeGeneratorLogic()
+        logic = SEEGPlannerLogic()
 
         # Test algorithm with non-inverted threshold
         logic.process(inputVolume, outputVolume, threshold, True)
