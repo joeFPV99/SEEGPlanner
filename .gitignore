@@ -4,4 +4,4 @@ DCM2NIFTI/Data/*
 .vscode/*
 venv/*
 *.json
-*.DS_Store
+.DS_Store
